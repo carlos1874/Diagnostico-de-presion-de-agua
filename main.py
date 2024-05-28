@@ -30,12 +30,41 @@ def get_input_data():
 
     data_values.append(valve_status)
 
-    return np.array([data_values])
+    return np.array([data_values]), data_values
 
 # Función para hacer la predicción usando el modelo cargado
 def make_prediction(input_data):
     pressure = loaded_model.predict(input_data)
     return pressure[0][0] * 1.422  # Convertir a psi
+
+# Función para diagnosticar la presión considerando múltiples variables
+def diagnose_pressure(pressure, data_values):
+    elevation, base_demand, demand, head, pipe_diameter, pipe_length, pipe_roughness, flow_in_pipe, water_velocity, valve_status = data_values
+    
+    diagnosis = []
+    
+    if pressure < 50:
+        diagnosis.append("Presión muy baja.")
+        if valve_status != 2:
+            diagnosis.append("Posible fuga en el sistema o válvula parcialmente abierta cuando debería estar cerrada.")
+        if flow_in_pipe < demand:
+            diagnosis.append("Flujo en la tubería menor que la demanda. Posible obstrucción o fuga.")
+    elif 50 <= pressure <= 150:
+        diagnosis.append("Presión dentro del rango normal.")
+    elif 150 < pressure <= 200:
+        diagnosis.append("Presión alta.")
+        if valve_status == 2:
+            diagnosis.append("Válvula cerrada.")
+        if pipe_diameter < 150:
+            diagnosis.append("Diámetro de la tubería pequeño. Posible obstrucción.")
+    else:
+        diagnosis.append("Presión muy alta.")
+        if head > 350:
+            diagnosis.append("Cabeza alta. Posible bomba de presión demasiado alta.")
+        if pipe_roughness > 0.2:
+            diagnosis.append("Rugosidad de la tubería alta. Posible obstrucción severa.")
+
+    return " ".join(diagnosis)
 
 # Función principal
 def main():
@@ -43,9 +72,11 @@ def main():
         print("\n¿Desea realizar un diagnóstico? (S/N)")
         decision = input().strip().upper()
         if decision == 'S':
-            input_data = get_input_data()
+            input_data, data_values = get_input_data()
             estimated_pressure = make_prediction(input_data)
+            diagnosis = diagnose_pressure(estimated_pressure, data_values)
             print(f"La presión estimada es: {estimated_pressure:.2f} psi")
+            print(f"Diagnóstico: {diagnosis}")
         elif decision == 'N':
             print("Saliendo del programa.")
             break
